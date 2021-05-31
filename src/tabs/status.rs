@@ -634,6 +634,7 @@ impl Component for Status {
             }
 
             if let Event::Key(k) = ev {
+                // TODO Add a command to add a file from path (Useful when hiding untracked files)
                 return if k == self.key_config.edit_file
                     && (self.can_focus_diff()
                         || self.is_focus_on_diff())
