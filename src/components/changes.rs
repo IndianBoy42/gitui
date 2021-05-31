@@ -22,7 +22,6 @@ pub struct ChangesComponent {
     is_working_dir: bool,
     queue: Queue,
     key_config: SharedKeyConfig,
-    hide_untracked: bool,
 }
 
 impl ChangesComponent {
@@ -34,7 +33,6 @@ impl ChangesComponent {
         queue: Queue,
         theme: SharedTheme,
         key_config: SharedKeyConfig,
-        hide_untracked: bool,
     ) -> Self {
         Self {
             files: FileTreeComponent::new(
@@ -47,7 +45,6 @@ impl ChangesComponent {
             is_working_dir,
             queue,
             key_config,
-            hide_untracked,
         }
     }
 
@@ -103,7 +100,6 @@ impl ChangesComponent {
                 sync::stage_add_all(
                     CWD,
                     tree_item.info.full_path.as_str(),
-                    self.hide_untracked,
                 )?;
 
                 return Ok(true);
@@ -118,7 +114,7 @@ impl ChangesComponent {
     }
 
     fn index_update_all(&mut self) -> Result<()> {
-        sync::stage_add_all(CWD, "*", true)?;
+        sync::stage_update_all(CWD, "*")?;
 
         self.queue
             .borrow_mut()
@@ -128,7 +124,7 @@ impl ChangesComponent {
     }
 
     fn index_add_all(&mut self) -> Result<()> {
-        sync::stage_add_all(CWD, "*", self.hide_untracked)?;
+        sync::stage_add_all(CWD, "*")?;
 
         self.queue
             .borrow_mut()
@@ -268,7 +264,6 @@ impl Component for ChangesComponent {
 
         if self.focused() {
             if let Event::Key(e) = ev {
-                // TODO Add a command to add a file from path (Useful when hiding untracked files)
                 return if e == self.key_config.open_commit
                     && !self.is_working_dir
                     && !self.is_empty()

@@ -110,7 +110,7 @@ fn main() -> Result<()> {
     let ticker = tick(TICK_INTERVAL);
     let spinner_ticker = tick(SPINNER_INTERVAL);
 
-    let mut app = App::new(&tx_git, input, theme, key_config, cliargs.hide_untracked);
+    let mut app = App::new(&tx_git, input, theme, key_config);
 
     let mut spinner = Spinner::default();
     let mut first_update = true;

@@ -88,8 +88,8 @@ mod tests {
         let root = repo.path().parent().unwrap();
         let repo_path = root.as_os_str().to_str().unwrap();
 
-        let res = get_status(repo_path, StatusType::WorkingDir, true)
-            .unwrap();
+        let res =
+            get_status(repo_path, StatusType::WorkingDir).unwrap();
         assert_eq!(res.len(), 0);
 
         let file_path = root.join("bar.txt");
@@ -167,7 +167,7 @@ mod tests {
                 .write_all(b"file3")?;
         }
 
-        stage_add_all(repo_path, "*", false).unwrap();
+        stage_add_all(repo_path, "*").unwrap();
         commit(repo_path, "msg").unwrap();
 
         {

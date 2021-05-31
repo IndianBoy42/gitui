@@ -82,7 +82,6 @@ impl App {
         input: Input,
         theme: Theme,
         key_config: KeyConfig,
-        hide_untracked: bool,
     ) -> Self {
         let queue = Queue::default();
         let theme = Rc::new(theme);
@@ -193,14 +192,12 @@ impl App {
                 sender,
                 theme.clone(),
                 key_config.clone(),
-                hide_untracked,
             ),
             stashing_tab: Stashing::new(
                 sender,
                 &queue,
                 theme.clone(),
                 key_config.clone(),
-                hide_untracked,
             ),
             stashlist_tab: StashList::new(
                 &queue,

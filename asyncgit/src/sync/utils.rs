@@ -1,7 +1,12 @@
 //! sync git api (various methods)
 
 use super::CommitId;
-use crate::error::{Error, Result};
+use crate::{
+    error::{Error, Result},
+    sync::status::{
+        untracked_files_config_path, ShowUntrackedFilesConfig,
+    },
+};
 use git2::{IndexAddOption, Repository, RepositoryOpenFlags};
 use scopetime::scope_time;
 use std::{
@@ -122,21 +127,16 @@ pub fn stage_add_file(repo_path: &str, path: &Path) -> Result<()> {
 }
 
 /// like `stage_add_file` but uses a pattern to match/glob multiple files/folders
-///
-/// the `no_untracked` flag makes it not add untracked files
-///     This is equivalent to the update(`-u, --update`) flag in `git add`
-pub fn stage_add_all(
-    repo_path: &str,
-    pattern: &str,
-    no_untracked: bool,
-) -> Result<()> {
+pub fn stage_add_all(repo_path: &str, pattern: &str) -> Result<()> {
     scope_time!("stage_add_all");
 
     let repo = repo(repo_path)?;
 
     let mut index = repo.index()?;
 
-    if no_untracked {
+    if untracked_files_config_path(repo_path)?
+        == ShowUntrackedFilesConfig::No
+    {
         index.update_all(vec![pattern], None)?;
     } else {
         index.add_all(
@@ -145,6 +145,23 @@ pub fn stage_add_all(
             None,
         )?;
     }
+    index.write()?;
+
+    Ok(())
+}
+
+/// like `stage_add_all` but ignores untracked files
+pub fn stage_update_all(
+    repo_path: &str,
+    pattern: &str,
+) -> Result<()> {
+    scope_time!("stage_add_all");
+
+    let repo = repo(repo_path)?;
+
+    let mut index = repo.index()?;
+
+    index.update_all(vec![pattern], None)?;
     index.write()?;
 
     Ok(())
@@ -170,6 +187,13 @@ pub fn get_config_string(
     key: &str,
 ) -> Result<Option<String>> {
     let repo = repo(repo_path)?;
+    get_config_string_repo(&repo, key)
+}
+
+pub(crate) fn get_config_string_repo(
+    repo: &Repository,
+    key: &str,
+) -> Result<Option<String>> {
     let cfg = repo.config()?;
 
     // this code doesnt match what the doc says regarding what
@@ -302,7 +326,7 @@ mod tests {
         let repo_path = root.as_os_str().to_str().unwrap();
 
         let status_count = |s: StatusType| -> usize {
-            get_status(repo_path, s, true).unwrap().len()
+            get_status(repo_path, s).unwrap().len()
         };
 
         fs::create_dir_all(&root.join("a/d"))?;
@@ -315,7 +339,7 @@ mod tests {
 
         assert_eq!(status_count(StatusType::WorkingDir), 3);
 
-        stage_add_all(repo_path, "a/d", false).unwrap();
+        stage_add_all(repo_path, "a/d").unwrap();
 
         assert_eq!(status_count(StatusType::WorkingDir), 1);
         assert_eq!(status_count(StatusType::Stage), 2);
@@ -331,7 +355,7 @@ mod tests {
         let repo_path = root.as_os_str().to_str().unwrap();
 
         let status_count = |s: StatusType| -> usize {
-            get_status(repo_path, s, true).unwrap().len()
+            get_status(repo_path, s).unwrap().len()
         };
 
         let full_path = &root.join(file_path);
@@ -365,7 +389,7 @@ mod tests {
         let repo_path = root.as_os_str().to_str().unwrap();
 
         let status_count = |s: StatusType| -> usize {
-            get_status(repo_path, s, true).unwrap().len()
+            get_status(repo_path, s).unwrap().len()
         };
 
         let sub = &root.join("sub");
@@ -382,7 +406,7 @@ mod tests {
         assert_eq!(status_count(StatusType::WorkingDir), 1);
 
         //expect to fail
-        assert!(stage_add_all(repo_path, "sub", false).is_err());
+        assert!(stage_add_all(repo_path, "sub").is_err());
 
         Ok(())
     }

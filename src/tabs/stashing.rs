@@ -49,7 +49,6 @@ impl Stashing {
         queue: &Queue,
         theme: SharedTheme,
         key_config: SharedKeyConfig,
-        hide_untracked: bool,
     ) -> Self {
         Self {
             index: FileTreeComponent::new(
@@ -62,7 +61,7 @@ impl Stashing {
             visible: false,
             options: StashingOptions {
                 keep_index: false,
-                stash_untracked: !hide_untracked,
+                stash_untracked: true,
             },
             theme,
             git_status: AsyncStatus::new(sender.clone()),
