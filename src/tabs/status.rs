@@ -71,6 +71,7 @@ pub struct Status {
     queue: Queue,
     git_action_executed: bool,
     key_config: SharedKeyConfig,
+    hide_untracked: bool,
 }
 
 impl DrawableComponent for Status {
@@ -134,6 +135,7 @@ impl Status {
         sender: &Sender<AsyncNotification>,
         theme: SharedTheme,
         key_config: SharedKeyConfig,
+        hide_untracked: bool,
     ) -> Self {
         Self {
             queue: queue.clone(),
@@ -169,6 +171,7 @@ impl Status {
             git_branch_state: None,
             git_branch_name: cached::BranchName::new(CWD),
             key_config,
+            hide_untracked,
         }
     }
 
@@ -320,11 +323,11 @@ impl Status {
             self.git_diff.refresh()?;
             self.git_status_workdir.fetch(&StatusParams::new(
                 StatusType::WorkingDir,
-                false,
+                !self.hide_untracked,
             ))?;
             self.git_status_stage.fetch(&StatusParams::new(
                 StatusType::Stage,
-                false,
+                !self.hide_untracked,
             ))?;
 
             self.branch_compare();
