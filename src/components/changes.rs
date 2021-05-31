@@ -117,6 +117,16 @@ impl ChangesComponent {
         Ok(false)
     }
 
+    fn index_update_all(&mut self) -> Result<()> {
+        sync::stage_add_all(CWD, "*", true)?;
+
+        self.queue
+            .borrow_mut()
+            .push_back(InternalEvent::Update(NeedsUpdate::ALL));
+
+        Ok(())
+    }
+
     fn index_add_all(&mut self) -> Result<()> {
         sync::stage_add_all(CWD, "*", self.hide_untracked)?;
 
@@ -208,6 +218,11 @@ impl Component for ChangesComponent {
                 self.focused(),
             ));
             out.push(CommandInfo::new(
+                strings::commands::update_all(&self.key_config),
+                some_selection,
+                self.focused(),
+            ));
+            out.push(CommandInfo::new(
                 strings::commands::stage_item(&self.key_config),
                 some_selection,
                 self.focused(),
@@ -270,6 +285,20 @@ impl Component for ChangesComponent {
 
                     self.queue.borrow_mut().push_back(
                         InternalEvent::Update(NeedsUpdate::ALL),
+                    );
+                    Ok(EventState::Consumed)
+                } else if e == self.key_config.status_update_all
+                    && !self.is_empty()
+                {
+                    if self.is_working_dir {
+                        try_or_popup!(
+                            self,
+                            "updating all error:",
+                            self.index_update_all()
+                        );
+                    }
+                    self.queue.borrow_mut().push_back(
+                        InternalEvent::StatusLastFileMoved,
                     );
                     Ok(EventState::Consumed)
                 } else if e == self.key_config.status_stage_all
