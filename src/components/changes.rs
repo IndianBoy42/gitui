@@ -268,6 +268,7 @@ impl Component for ChangesComponent {
 
         if self.focused() {
             if let Event::Key(e) = ev {
+                // TODO Add a command to add a file from path (Useful when hiding untracked files)
                 return if e == self.key_config.open_commit
                     && !self.is_working_dir
                     && !self.is_empty()
