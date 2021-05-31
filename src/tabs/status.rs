@@ -149,6 +149,7 @@ impl Status {
                 queue.clone(),
                 theme.clone(),
                 key_config.clone(),
+                hide_untracked,
             ),
             index: ChangesComponent::new(
                 &strings::title_index(&key_config),
@@ -157,6 +158,7 @@ impl Status {
                 queue.clone(),
                 theme.clone(),
                 key_config.clone(),
+                hide_untracked,
             ),
             diff: DiffComponent::new(
                 queue.clone(),

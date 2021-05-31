@@ -122,14 +122,29 @@ pub fn stage_add_file(repo_path: &str, path: &Path) -> Result<()> {
 }
 
 /// like `stage_add_file` but uses a pattern to match/glob multiple files/folders
-pub fn stage_add_all(repo_path: &str, pattern: &str) -> Result<()> {
+///
+/// the `no_untracked` flag makes it not add untracked files
+///     This is equivalent to the update(`-u, --update`) flag in `git add`
+pub fn stage_add_all(
+    repo_path: &str,
+    pattern: &str,
+    no_untracked: bool,
+) -> Result<()> {
     scope_time!("stage_add_all");
 
     let repo = repo(repo_path)?;
 
     let mut index = repo.index()?;
 
-    index.add_all(vec![pattern], IndexAddOption::DEFAULT, None)?;
+    if no_untracked {
+        index.update_all(vec![pattern], None)?;
+    } else {
+        index.add_all(
+            vec![pattern],
+            IndexAddOption::DEFAULT,
+            None,
+        )?;
+    }
     index.write()?;
 
     Ok(())
@@ -300,7 +315,7 @@ mod tests {
 
         assert_eq!(status_count(StatusType::WorkingDir), 3);
 
-        stage_add_all(repo_path, "a/d").unwrap();
+        stage_add_all(repo_path, "a/d", false).unwrap();
 
         assert_eq!(status_count(StatusType::WorkingDir), 1);
         assert_eq!(status_count(StatusType::Stage), 2);
@@ -367,7 +382,7 @@ mod tests {
         assert_eq!(status_count(StatusType::WorkingDir), 1);
 
         //expect to fail
-        assert!(stage_add_all(repo_path, "sub").is_err());
+        assert!(stage_add_all(repo_path, "sub", false).is_err());
 
         Ok(())
     }
