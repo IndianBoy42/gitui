@@ -1,5 +1,6 @@
 use crate::bug_report;
 use anyhow::{anyhow, Result};
+use asyncgit::sync::utils::get_config_string;
 use clap::{
     crate_authors, crate_description, crate_name, crate_version,
     App as ClapApp, Arg,
@@ -8,6 +9,7 @@ use simplelog::{Config, LevelFilter, WriteLogger};
 use std::{
     env,
     fs::{self, File},
+    ops::Not,
     path::PathBuf,
 };
 
@@ -69,7 +71,23 @@ pub fn process_cmdline() -> Result<CliArgs> {
     }
     let arg_theme =
         arg_matches.value_of("theme").unwrap_or("theme.ron");
-    let arg_untracked = arg_matches.is_present("hide-untracked"); // TODO get untracked flag from git (status.showUntrackedFiles, gui.displayuntracked)
+    let gui_display_untracked = || {
+        get_config_string(asyncgit::CWD, "gui.displayuntracked")
+            .ok()
+            .flatten()
+            .map(|x| x != "false")
+    };
+    let status_show_untracked_files = || {
+        get_config_string(asyncgit::CWD, "status.showUntrackedFiles")
+            .ok()
+            .flatten()
+            .map(|x| x != "no")
+    };
+    let arg_untracked = gui_display_untracked()
+        .or_else(status_show_untracked_files)
+        .unwrap_or(!arg_matches.is_present("hide-untracked"))
+        .not();
+    // let arg_untracked = arg_matches.is_present("hide-untracked"); // TODO get untracked flag from git (status.showUntrackedFiles, gui.displayuntracked)
 
     if get_app_config_path()?.join(arg_theme).is_file() {
         Ok(CliArgs {
