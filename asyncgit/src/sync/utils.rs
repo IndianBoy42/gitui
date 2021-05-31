@@ -1,7 +1,12 @@
 //! sync git api (various methods)
 
 use super::CommitId;
-use crate::error::{Error, Result};
+use crate::{
+    error::{Error, Result},
+    sync::status::{
+        untracked_files_config_path, ShowUntrackedFilesConfig,
+    },
+};
 use git2::{IndexAddOption, Repository, RepositoryOpenFlags};
 use scopetime::scope_time;
 use std::{
@@ -129,7 +134,34 @@ pub fn stage_add_all(repo_path: &str, pattern: &str) -> Result<()> {
 
     let mut index = repo.index()?;
 
-    index.add_all(vec![pattern], IndexAddOption::DEFAULT, None)?;
+    if untracked_files_config_path(repo_path)?
+        == ShowUntrackedFilesConfig::No
+    {
+        index.update_all(vec![pattern], None)?;
+    } else {
+        index.add_all(
+            vec![pattern],
+            IndexAddOption::DEFAULT,
+            None,
+        )?;
+    }
+    index.write()?;
+
+    Ok(())
+}
+
+/// like `stage_add_all` but ignores untracked files
+pub fn stage_update_all(
+    repo_path: &str,
+    pattern: &str,
+) -> Result<()> {
+    scope_time!("stage_add_all");
+
+    let repo = repo(repo_path)?;
+
+    let mut index = repo.index()?;
+
+    index.update_all(vec![pattern], None)?;
     index.write()?;
 
     Ok(())

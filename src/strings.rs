@@ -641,6 +641,16 @@ pub mod commands {
             CMD_GROUP_CHANGES,
         )
     }
+    pub fn update_all(key_config: &SharedKeyConfig) -> CommandText {
+        CommandText::new(
+            format!(
+                "Update All [{}]",
+                key_config.get_hint(key_config.status_update_all),
+            ),
+            "update all changes (stage all already tracked files)",
+            CMD_GROUP_CHANGES,
+        )
+    }
     pub fn stage_all(key_config: &SharedKeyConfig) -> CommandText {
         CommandText::new(
             format!(

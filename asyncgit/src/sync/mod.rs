@@ -71,7 +71,8 @@ pub use tags::{
 pub use tree::{tree_file_content, tree_files, TreeFile};
 pub use utils::{
     get_head, get_head_tuple, is_bare_repo, is_repo, repo_dir,
-    stage_add_all, stage_add_file, stage_addremoved, Head,
+    stage_add_all, stage_add_file, stage_addremoved,
+    stage_update_all, Head,
 };
 
 #[cfg(test)]

@@ -93,7 +93,8 @@ impl From<StatusType> for StatusShow {
 }
 
 // see https://git-scm.com/docs/git-config#Documentation/git-config.txt-statusshowUntrackedFiles
-enum ShowUntrackedFilesConfig {
+#[derive(PartialEq)]
+pub(crate) enum ShowUntrackedFilesConfig {
     No,
     Normal,
     All,
@@ -109,7 +110,14 @@ impl ShowUntrackedFilesConfig {
     }
 }
 
-fn untracked_files_config(
+pub(crate) fn untracked_files_config_path(
+    repo_path: &str,
+) -> Result<ShowUntrackedFilesConfig> {
+    let repo = utils::repo(repo_path)?;
+    untracked_files_config(&repo)
+}
+
+pub(crate) fn untracked_files_config(
     repo: &Repository,
 ) -> Result<ShowUntrackedFilesConfig> {
     let show_untracked_files =
