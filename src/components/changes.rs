@@ -22,6 +22,7 @@ pub struct ChangesComponent {
     is_working_dir: bool,
     queue: Queue,
     key_config: SharedKeyConfig,
+    hide_untracked: bool,
 }
 
 impl ChangesComponent {
@@ -33,6 +34,7 @@ impl ChangesComponent {
         queue: Queue,
         theme: SharedTheme,
         key_config: SharedKeyConfig,
+        hide_untracked: bool,
     ) -> Self {
         Self {
             files: FileTreeComponent::new(
@@ -45,6 +47,7 @@ impl ChangesComponent {
             is_working_dir,
             queue,
             key_config,
+            hide_untracked,
         }
     }
 
@@ -100,6 +103,7 @@ impl ChangesComponent {
                 sync::stage_add_all(
                     CWD,
                     tree_item.info.full_path.as_str(),
+                    self.hide_untracked,
                 )?;
 
                 return Ok(true);
@@ -113,8 +117,18 @@ impl ChangesComponent {
         Ok(false)
     }
 
+    fn index_update_all(&mut self) -> Result<()> {
+        sync::stage_add_all(CWD, "*", true)?;
+
+        self.queue
+            .borrow_mut()
+            .push_back(InternalEvent::Update(NeedsUpdate::ALL));
+
+        Ok(())
+    }
+
     fn index_add_all(&mut self) -> Result<()> {
-        sync::stage_add_all(CWD, "*")?;
+        sync::stage_add_all(CWD, "*", self.hide_untracked)?;
 
         self.queue
             .borrow_mut()
@@ -204,6 +218,11 @@ impl Component for ChangesComponent {
                 self.focused(),
             ));
             out.push(CommandInfo::new(
+                strings::commands::update_all(&self.key_config),
+                some_selection,
+                self.focused(),
+            ));
+            out.push(CommandInfo::new(
                 strings::commands::stage_item(&self.key_config),
                 some_selection,
                 self.focused(),
@@ -249,6 +268,7 @@ impl Component for ChangesComponent {
 
         if self.focused() {
             if let Event::Key(e) = ev {
+                // TODO Add a command to add a file from path (Useful when hiding untracked files)
                 return if e == self.key_config.open_commit
                     && !self.is_working_dir
                     && !self.is_empty()
@@ -266,6 +286,20 @@ impl Component for ChangesComponent {
 
                     self.queue.borrow_mut().push_back(
                         InternalEvent::Update(NeedsUpdate::ALL),
+                    );
+                    Ok(EventState::Consumed)
+                } else if e == self.key_config.status_update_all
+                    && !self.is_empty()
+                {
+                    if self.is_working_dir {
+                        try_or_popup!(
+                            self,
+                            "updating all error:",
+                            self.index_update_all()
+                        );
+                    }
+                    self.queue.borrow_mut().push_back(
+                        InternalEvent::StatusLastFileMoved,
                     );
                     Ok(EventState::Consumed)
                 } else if e == self.key_config.status_stage_all
