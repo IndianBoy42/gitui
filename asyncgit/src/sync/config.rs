@@ -1,25 +1,35 @@
+//! configs git helper
+
 use super::utils::repo;
 use crate::error::Result;
 use git2::Repository;
 use scopetime::scope_time;
 
-// see https://git-scm.com/docs/git-config#Documentation/git-config.txt-statusshowUntrackedFiles
+/// Possible options for the status.showUntrackedFiles
+///
+/// see https://git-scm.com/docs/git-config#Documentation/git-config.txt-statusshowUntrackedFiles
 pub enum ShowUntrackedFilesConfig {
+    /// Don't include any untracked fiels
     No,
+    /// Show untracked files and directories, but do not recurse into untracked directories to find files
     Normal,
+    /// Show all untracked files recursively
     All,
 }
 
 impl ShowUntrackedFilesConfig {
+    /// should include untracked files?
     pub const fn include_untracked(&self) -> bool {
         matches!(self, Self::Normal | Self::All)
     }
 
+    /// should recurse untracked dirs?
     pub const fn recurse_untracked_dirs(&self) -> bool {
         matches!(self, Self::All)
     }
 }
 
+/// Get the showUntrackedFiles config option for a Repository
 pub fn untracked_files_config(
     repo: &Repository,
 ) -> Result<ShowUntrackedFilesConfig> {
@@ -46,6 +56,7 @@ pub fn get_config_string(
     get_config_string_repo(&repo, key)
 }
 
+/// get string from config (from Repository object)
 pub fn get_config_string_repo(
     repo: &Repository,
     key: &str,

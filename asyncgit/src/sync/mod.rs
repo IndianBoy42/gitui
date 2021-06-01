@@ -9,7 +9,7 @@ mod commit;
 mod commit_details;
 mod commit_files;
 mod commits_info;
-mod config;
+pub mod config;
 pub mod cred;
 pub mod diff;
 mod hooks;
