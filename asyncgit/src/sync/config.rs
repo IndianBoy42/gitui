@@ -5,7 +5,7 @@ use crate::error::Result;
 use git2::Repository;
 use scopetime::scope_time;
 
-/// Possible options for the status.showUntrackedFiles
+/// Possible states for the status.showUntrackedFiles
 ///
 /// see https://git-scm.com/docs/git-config#Documentation/git-config.txt-statusshowUntrackedFiles
 pub enum ShowUntrackedFilesConfig {
@@ -18,6 +18,11 @@ pub enum ShowUntrackedFilesConfig {
 }
 
 impl ShowUntrackedFilesConfig {
+    /// should include no untracked files?
+    pub const fn include_none(&self) -> bool {
+        matches!(self, Self::No)
+    }
+
     /// should include untracked files?
     pub const fn include_untracked(&self) -> bool {
         matches!(self, Self::Normal | Self::All)
@@ -29,8 +34,8 @@ impl ShowUntrackedFilesConfig {
     }
 }
 
-/// Get the showUntrackedFiles config option for a Repository
-pub fn untracked_files_config(
+/// showUntrackedFiles for a Repository 
+pub fn untracked_files_config_repo(
     repo: &Repository,
 ) -> Result<ShowUntrackedFilesConfig> {
     let show_untracked_files =
@@ -45,6 +50,14 @@ pub fn untracked_files_config(
     }
 
     Ok(ShowUntrackedFilesConfig::All)
+}
+
+/// showUntrackedFiles for a Repository (from path)
+pub fn untracked_files_config(
+    repo_path: &str,
+) -> Result<ShowUntrackedFilesConfig> {
+    let repo = repo(repo_path)?;
+    untracked_files_config_repo(&repo)
 }
 
 /// get string from config

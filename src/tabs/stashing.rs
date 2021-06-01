@@ -11,12 +11,7 @@ use crate::{
     ui::style::SharedTheme,
 };
 use anyhow::Result;
-use asyncgit::{
-    sync::{
-        config::untracked_files_config, status::StatusType, utils,
-    },
-    AsyncNotification, AsyncStatus, StatusParams, CWD,
-};
+use asyncgit::{AsyncNotification, AsyncStatus,  StatusParams, sync::status::StatusType};
 use crossbeam_channel::Sender;
 use crossterm::event::Event;
 use std::borrow::Cow;
@@ -63,10 +58,10 @@ impl Stashing {
             visible: false,
             options: StashingOptions {
                 keep_index: false,
-                stash_untracked: utils::repo(CWD)
-                    .and_then(|repo| untracked_files_config(&repo))
-                    .map(|c| c.include_untracked())
-                    .unwrap_or(true),
+    stash_untracked: true                
+                // stash_untracked: sync::untracked_files_config(CWD)
+                //     .map(|c| c.include_untracked())
+                //     .unwrap_or(true),
             },
             theme,
             git_status: AsyncStatus::new(sender.clone()),
@@ -78,10 +73,8 @@ impl Stashing {
     ///
     pub fn update(&mut self) -> Result<()> {
         if self.is_visible() {
-            self.git_status.fetch(&StatusParams::new(
-                StatusType::Both,
-                self.options.stash_untracked,
-            ))?;
+            self.git_status
+                .fetch(&StatusParams::new(StatusType::Both))?;
         }
 
         Ok(())
@@ -263,6 +256,12 @@ impl Component for Stashing {
     }
 
     fn show(&mut self) -> Result<()> {
+//         let config_untracked_files =
+//             sync::untracked_files_config(CWD)?;
+// 
+//         self.options.stash_untracked =
+//             !config_untracked_files.include_none();
+
         self.visible = true;
         self.update()?;
         Ok(())
