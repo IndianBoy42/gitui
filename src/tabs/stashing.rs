@@ -12,8 +12,10 @@ use crate::{
 };
 use anyhow::Result;
 use asyncgit::{
-    sync::status::StatusType, AsyncNotification, AsyncStatus,
-    StatusParams,
+    sync::{
+        config::untracked_files_config, status::StatusType, utils,
+    },
+    AsyncNotification, AsyncStatus, StatusParams, CWD,
 };
 use crossbeam_channel::Sender;
 use crossterm::event::Event;
@@ -61,7 +63,10 @@ impl Stashing {
             visible: false,
             options: StashingOptions {
                 keep_index: false,
-                stash_untracked: true,
+                stash_untracked: utils::repo(CWD)
+                    .and_then(|repo| untracked_files_config(&repo))
+                    .map(|c| c.include_untracked())
+                    .unwrap_or(true),
             },
             theme,
             git_status: AsyncStatus::new(sender.clone()),

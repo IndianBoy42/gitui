@@ -44,7 +44,7 @@ pub fn is_bare_repo(repo_path: &str) -> Result<bool> {
 }
 
 ///
-pub(crate) fn repo(repo_path: &str) -> Result<Repository> {
+pub fn repo(repo_path: &str) -> Result<Repository> {
     let repo = Repository::open_ext(
         repo_path,
         RepositoryOpenFlags::empty(),
