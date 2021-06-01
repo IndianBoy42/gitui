@@ -1,4 +1,4 @@
-//! configs git helper
+//! git configs helper
 
 use super::utils::repo;
 use crate::error::Result;
