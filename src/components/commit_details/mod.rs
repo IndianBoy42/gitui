@@ -54,7 +54,7 @@ impl CommitDetailsComponent {
                 theme,
                 key_config.clone(),
             ),
-            visible: false,
+            visible: true,
             key_config,
         }
     }
