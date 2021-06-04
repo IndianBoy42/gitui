@@ -9,9 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Added
 - honor `config.showUntrackedFiles` improving speed with a lot of untracked items ([#752](https://github.com/extrawurst/gitui/issues/752))
+- improve performance when opening filetree-tab ([#756](https://github.com/extrawurst/gitui/issues/756))
   
 ## Fixed
 - wrong file with same name shown in file tree ([#748](https://github.com/extrawurst/gitui/issues/748))
+- filetree collapsing broken on windows ([#761](https://github.com/extrawurst/gitui/issues/761))
+
+### Internal
+- use git_repository_message [[@kosayoda](https://github.com/kosayoda)] ([#751](https://github.com/extrawurst/gitui/issues/751))
 
 ## [0.16.0] - 2021-05-28
 
