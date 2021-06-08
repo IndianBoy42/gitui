@@ -308,6 +308,7 @@ pub mod commands {
     static CMD_GROUP_STASHING: &str = "-- Stashing --";
     static CMD_GROUP_STASHES: &str = "-- Stashes --";
     static CMD_GROUP_LOG: &str = "-- Log --";
+    static CMD_GROUP_BRANCHES: &str = "-- Branches --";
 
     pub fn toggle_tabs(key_config: &SharedKeyConfig) -> CommandText {
         CommandText::new(
@@ -579,6 +580,16 @@ pub mod commands {
             CMD_GROUP_GENERAL,
         )
     }
+    pub fn undo_commit(key_config: &SharedKeyConfig) -> CommandText {
+        CommandText::new(
+            format!(
+                "Undo Commit [{}]",
+                key_config.get_hint(key_config.undo_commit),
+            ),
+            "undo last commit",
+            CMD_GROUP_GENERAL,
+        )
+    }
     pub fn commit_open(key_config: &SharedKeyConfig) -> CommandText {
         CommandText::new(
             format!(
@@ -597,7 +608,7 @@ pub mod commands {
                 "Open editor [{}]",
                 key_config.get_hint(key_config.open_commit_editor),
             ),
-            "open commit editor (available in non-empty stage)",
+            "open commit editor (available in commit popup)",
             CMD_GROUP_COMMIT,
         )
     }
@@ -610,6 +621,7 @@ pub mod commands {
             "commit (available when commit message is non-empty)",
             CMD_GROUP_COMMIT,
         )
+        .hide_help()
     }
     pub fn commit_amend(key_config: &SharedKeyConfig) -> CommandText {
         CommandText::new(
@@ -617,7 +629,7 @@ pub mod commands {
                 "Amend [{}]",
                 key_config.get_hint(key_config.commit_amend),
             ),
-            "amend last commit",
+            "amend last commit (available in commit popup)",
             CMD_GROUP_COMMIT,
         )
     }
@@ -924,8 +936,9 @@ pub mod commands {
                 key_config.get_hint(key_config.enter),
             ),
             "create branch",
-            CMD_GROUP_GENERAL,
+            CMD_GROUP_BRANCHES,
         )
+        .hide_help()
     }
     pub fn open_branch_create_popup(
         key_config: &SharedKeyConfig,
@@ -936,7 +949,7 @@ pub mod commands {
                 key_config.get_hint(key_config.create_branch),
             ),
             "open create branch popup",
-            CMD_GROUP_GENERAL,
+            CMD_GROUP_BRANCHES,
         )
     }
     pub fn rename_branch_confirm_msg(
@@ -948,8 +961,9 @@ pub mod commands {
                 key_config.get_hint(key_config.enter),
             ),
             "rename branch",
-            CMD_GROUP_GENERAL,
+            CMD_GROUP_BRANCHES,
         )
+        .hide_help()
     }
     pub fn rename_branch_popup(
         key_config: &SharedKeyConfig,
@@ -960,7 +974,7 @@ pub mod commands {
                 key_config.get_hint(key_config.rename_branch),
             ),
             "rename branch",
-            CMD_GROUP_GENERAL,
+            CMD_GROUP_BRANCHES,
         )
     }
     pub fn delete_branch_popup(
@@ -972,7 +986,7 @@ pub mod commands {
                 key_config.get_hint(key_config.delete_branch),
             ),
             "delete a branch",
-            CMD_GROUP_GENERAL,
+            CMD_GROUP_BRANCHES,
         )
     }
     pub fn merge_branch_popup(
@@ -984,7 +998,7 @@ pub mod commands {
                 key_config.get_hint(key_config.merge_branch),
             ),
             "merge a branch",
-            CMD_GROUP_GENERAL,
+            CMD_GROUP_BRANCHES,
         )
     }
     pub fn select_branch_popup(
@@ -996,7 +1010,7 @@ pub mod commands {
                 key_config.get_hint(key_config.enter),
             ),
             "checkout branch",
-            CMD_GROUP_GENERAL,
+            CMD_GROUP_BRANCHES,
         )
     }
     pub fn toggle_branch_popup(
@@ -1010,7 +1024,7 @@ pub mod commands {
                 key_config.get_hint(key_config.tab_toggle),
             ),
             "toggle branch type (remote/local)",
-            CMD_GROUP_GENERAL,
+            CMD_GROUP_BRANCHES,
         )
     }
     pub fn open_branch_select_popup(
@@ -1021,8 +1035,8 @@ pub mod commands {
                 "Branches [{}]",
                 key_config.get_hint(key_config.select_branch),
             ),
-            "open select branch popup",
-            CMD_GROUP_GENERAL,
+            "open branch popup",
+            CMD_GROUP_BRANCHES,
         )
     }
 
@@ -1057,7 +1071,7 @@ pub mod commands {
                 key_config.get_hint(key_config.select_tag),
             ),
             "Select commit in revlog",
-            CMD_GROUP_GENERAL,
+            CMD_GROUP_LOG,
         )
     }
 

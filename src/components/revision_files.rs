@@ -1,6 +1,7 @@
 use super::{
-    CommandBlocking, CommandInfo, Component, DrawableComponent,
-    EventState, SyntaxTextComponent,
+    utils::scroll_vertical::VerticalScroll, CommandBlocking,
+    CommandInfo, Component, DrawableComponent, EventState,
+    SyntaxTextComponent,
 };
 use crate::{
     keys::SharedKeyConfig,
@@ -11,14 +12,12 @@ use crate::{
 use anyhow::Result;
 use asyncgit::{
     sync::{self, CommitId, TreeFile},
-    AsyncNotification, CWD,
+    AsyncGitNotification, CWD,
 };
 use crossbeam_channel::Sender;
 use crossterm::event::Event;
 use filetreelist::{FileTree, FileTreeItem};
-use std::{
-    cell::Cell, collections::BTreeSet, convert::From, path::Path,
-};
+use std::{collections::BTreeSet, convert::From, path::Path};
 use tui::{
     backend::Backend,
     layout::{Constraint, Direction, Layout, Rect},
@@ -43,7 +42,7 @@ pub struct RevisionFilesComponent {
     files: Vec<TreeFile>,
     current_file: SyntaxTextComponent,
     tree: FileTree,
-    scroll_top: Cell<usize>,
+    scroll: VerticalScroll,
     revision: Option<CommitId>,
     focus: Focus,
     key_config: SharedKeyConfig,
@@ -53,14 +52,14 @@ impl RevisionFilesComponent {
     ///
     pub fn new(
         queue: &Queue,
-        sender: &Sender<AsyncNotification>,
+        sender: &Sender<AsyncGitNotification>,
         theme: SharedTheme,
         key_config: SharedKeyConfig,
     ) -> Self {
         Self {
             queue: queue.clone(),
             tree: FileTree::default(),
-            scroll_top: Cell::new(0),
+            scroll: VerticalScroll::new(),
             current_file: SyntaxTextComponent::new(
                 sender,
                 key_config.clone(),
@@ -91,7 +90,7 @@ impl RevisionFilesComponent {
     }
 
     ///
-    pub fn update(&mut self, ev: AsyncNotification) {
+    pub fn update(&mut self, ev: AsyncGitNotification) {
         self.current_file.update(ev);
     }
 
@@ -131,14 +130,12 @@ impl RevisionFilesComponent {
 
     fn blame(&self) -> bool {
         self.tree.selected_file().map_or(false, |file| {
-            self.queue.borrow_mut().push_back(
-                InternalEvent::BlameFile(
-                    file.full_path_str()
-                        .strip_prefix("./")
-                        .unwrap_or_default()
-                        .to_string(),
-                ),
-            );
+            self.queue.push(InternalEvent::BlameFile(
+                file.full_path_str()
+                    .strip_prefix("./")
+                    .unwrap_or_default()
+                    .to_string(),
+            ));
             true
         })
     }
@@ -168,25 +165,22 @@ impl RevisionFilesComponent {
     fn draw_tree<B: Backend>(&self, f: &mut Frame<B>, area: Rect) {
         let tree_height = usize::from(area.height.saturating_sub(2));
 
-        let selection = self.tree.visual_selection();
-        let visual_count = selection.map_or_else(
+        self.tree.visual_selection().map_or_else(
             || {
-                self.scroll_top.set(0);
-                0
+                self.scroll.reset();
             },
             |selection| {
-                self.scroll_top.set(ui::calc_scroll_top(
-                    self.scroll_top.get(),
-                    tree_height,
+                self.scroll.update(
                     selection.index,
-                ));
-                selection.count
+                    selection.count,
+                    tree_height,
+                );
             },
         );
 
         let items = self
             .tree
-            .iterate(self.scroll_top.get(), tree_height)
+            .iterate(self.scroll.get_top(), tree_height)
             .map(|(item, selected)| {
                 Self::tree_item_to_span(item, &self.theme, selected)
             });
@@ -213,13 +207,7 @@ impl RevisionFilesComponent {
         );
 
         if is_tree_focused {
-            ui::draw_scrollbar(
-                f,
-                area,
-                &self.theme,
-                visual_count.saturating_sub(tree_height),
-                self.scroll_top.get(),
-            );
+            self.scroll.draw(f, area, &self.theme);
         }
     }
 }

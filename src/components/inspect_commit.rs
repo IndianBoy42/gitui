@@ -13,7 +13,7 @@ use crate::{
 use anyhow::Result;
 use asyncgit::{
     sync::{CommitId, CommitTags},
-    AsyncDiff, AsyncNotification, DiffParams, DiffType,
+    AsyncDiff, AsyncGitNotification, DiffParams, DiffType,
 };
 use crossbeam_channel::Sender;
 use crossterm::event::Event;
@@ -138,9 +138,9 @@ impl Component for InspectCommitComponent {
                     self.diff.focus(false);
                 } else if e == self.key_config.open_file_tree {
                     if let Some(commit) = self.commit_id {
-                        self.queue.borrow_mut().push_back(
-                            InternalEvent::OpenFileTree(commit),
-                        );
+                        self.queue.push(InternalEvent::OpenFileTree(
+                            commit,
+                        ));
                         self.hide();
                     }
                 } else if e == self.key_config.focus_left {
@@ -176,7 +176,7 @@ impl InspectCommitComponent {
     ///
     pub fn new(
         queue: &Queue,
-        sender: &Sender<AsyncNotification>,
+        sender: &Sender<AsyncGitNotification>,
         theme: SharedTheme,
         key_config: SharedKeyConfig,
     ) -> Self {
@@ -223,13 +223,13 @@ impl InspectCommitComponent {
     ///
     pub fn update_git(
         &mut self,
-        ev: AsyncNotification,
+        ev: AsyncGitNotification,
     ) -> Result<()> {
         if self.is_visible() {
-            if let AsyncNotification::CommitFiles = ev {
-                self.update()?
-            } else if let AsyncNotification::Diff = ev {
-                self.update_diff()?
+            if let AsyncGitNotification::CommitFiles = ev {
+                self.update()?;
+            } else if let AsyncGitNotification::Diff = ev {
+                self.update_diff()?;
             }
         }
 
@@ -251,18 +251,18 @@ impl InspectCommitComponent {
                         self.git_diff.last()?
                     {
                         if params == diff_params {
-                            self.diff.update(f.path, false, last)?;
+                            self.diff.update(f.path, false, last);
                             return Ok(());
                         }
                     }
 
                     self.git_diff.request(diff_params)?;
-                    self.diff.clear(true)?;
+                    self.diff.clear(true);
                     return Ok(());
                 }
             }
 
-            self.diff.clear(false)?;
+            self.diff.clear(false);
         }
 
         Ok(())

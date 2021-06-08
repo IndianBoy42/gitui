@@ -79,7 +79,7 @@ impl Component for RenameBranchComponent {
     }
 
     fn hide(&mut self) {
-        self.input.hide()
+        self.input.hide();
     }
 
     fn show(&mut self) -> Result<()> {
@@ -135,29 +135,22 @@ impl RenameBranchComponent {
 
             match res {
                 Ok(_) => {
-                    self.queue.borrow_mut().push_back(
-                        InternalEvent::Update(NeedsUpdate::ALL),
-                    );
+                    self.queue.push(InternalEvent::Update(
+                        NeedsUpdate::ALL,
+                    ));
                     self.hide();
-                    self.queue
-                        .borrow_mut()
-                        .push_back(InternalEvent::SelectBranch);
+                    self.queue.push(InternalEvent::SelectBranch);
                 }
                 Err(e) => {
                     log::error!("create branch: {}", e,);
-                    self.queue.borrow_mut().push_back(
-                        InternalEvent::ShowErrorMsg(format!(
-                            "rename branch error:\n{}",
-                            e,
-                        )),
-                    );
+                    self.queue.push(InternalEvent::ShowErrorMsg(
+                        format!("rename branch error:\n{}", e,),
+                    ));
                 }
             }
         } else {
             log::error!("create branch: No branch selected");
-            self.queue
-                .borrow_mut()
-                .push_back(InternalEvent::ShowErrorMsg(
+            self.queue.push(InternalEvent::ShowErrorMsg(
                 "rename branch error: No branch selected to rename"
                     .to_string(),
             ));

@@ -1,13 +1,14 @@
 use super::{
-    visibility_blocking, CommandBlocking, CommandInfo, Component,
-    DrawableComponent, EventState,
+    utils::scroll_vertical::VerticalScroll, visibility_blocking,
+    CommandBlocking, CommandInfo, Component, DrawableComponent,
+    EventState,
 };
 use crate::{
     components::ScrollType,
     keys::SharedKeyConfig,
     queue::{Action, InternalEvent, NeedsUpdate, Queue},
     strings, try_or_popup,
-    ui::{self, calc_scroll_top, Size},
+    ui::{self, Size},
 };
 use anyhow::Result;
 use asyncgit::{
@@ -37,7 +38,7 @@ pub struct BranchListComponent {
     local: bool,
     visible: bool,
     selection: u16,
-    scroll_top: Cell<usize>,
+    scroll: VerticalScroll,
     current_height: Cell<u16>,
     queue: Queue,
     theme: SharedTheme,
@@ -87,7 +88,6 @@ impl DrawableComponent for BranchListComponent {
                 .split(area);
 
             self.draw_tabs(f, chunks[0]);
-
             self.draw_list(f, chunks[1])?;
         }
 
@@ -102,7 +102,9 @@ impl Component for BranchListComponent {
         force_all: bool,
     ) -> CommandBlocking {
         if self.visible || force_all {
-            out.clear();
+            if !force_all {
+                out.clear();
+            }
 
             out.push(CommandInfo::new(
                 strings::commands::scroll(&self.key_config),
@@ -173,7 +175,7 @@ impl Component for BranchListComponent {
         if self.visible {
             if let Event::Key(e) = ev {
                 if e == self.key_config.exit_popup {
-                    self.hide()
+                    self.hide();
                 } else if e == self.key_config.move_down {
                     return self
                         .move_selection(ScrollType::Up)
@@ -199,36 +201,29 @@ impl Component for BranchListComponent {
                 } else if e == self.key_config.create_branch
                     && self.local
                 {
-                    self.queue
-                        .borrow_mut()
-                        .push_back(InternalEvent::CreateBranch);
+                    self.queue.push(InternalEvent::CreateBranch);
                 } else if e == self.key_config.rename_branch
                     && self.valid_selection()
                 {
                     let cur_branch =
                         &self.branches[self.selection as usize];
-                    self.queue.borrow_mut().push_back(
-                        InternalEvent::RenameBranch(
-                            cur_branch.reference.clone(),
-                            cur_branch.name.clone(),
-                        ),
-                    );
+                    self.queue.push(InternalEvent::RenameBranch(
+                        cur_branch.reference.clone(),
+                        cur_branch.name.clone(),
+                    ));
 
                     self.update_branches()?;
                 } else if e == self.key_config.delete_branch
                     && !self.selection_is_cur_branch()
                     && self.valid_selection()
                 {
-                    self.queue.borrow_mut().push_back(
-                        InternalEvent::ConfirmAction(
-                            Action::DeleteBranch(
-                                self.branches
-                                    [self.selection as usize]
-                                    .reference
-                                    .clone(),
-                            ),
+                    self.queue.push(InternalEvent::ConfirmAction(
+                        Action::DeleteBranch(
+                            self.branches[self.selection as usize]
+                                .reference
+                                .clone(),
                         ),
-                    );
+                    ));
                 } else if e == self.key_config.merge_branch
                     && !self.selection_is_cur_branch()
                     && self.valid_selection()
@@ -239,9 +234,9 @@ impl Component for BranchListComponent {
                         self.merge_branch()
                     );
                     self.hide();
-                    self.queue.borrow_mut().push_back(
-                        InternalEvent::Update(NeedsUpdate::ALL),
-                    );
+                    self.queue.push(InternalEvent::Update(
+                        NeedsUpdate::ALL,
+                    ));
                 } else if e == self.key_config.tab_toggle {
                     self.local = !self.local;
                     self.update_branches()?;
@@ -259,7 +254,7 @@ impl Component for BranchListComponent {
     }
 
     fn hide(&mut self) {
-        self.visible = false
+        self.visible = false;
     }
 
     fn show(&mut self) -> Result<()> {
@@ -280,7 +275,7 @@ impl BranchListComponent {
             local: true,
             visible: false,
             selection: 0,
-            scroll_top: Cell::new(0),
+            scroll: VerticalScroll::new(),
             queue,
             theme,
             key_config,
@@ -381,9 +376,13 @@ impl BranchListComponent {
         width_available: u16,
         height: usize,
     ) -> Text {
+        const UPSTREAM_SYMBOL: char = '\u{2191}';
+        const HEAD_SYMBOL: char = '*';
+        const EMPTY_SYMBOL: char = ' ';
+        const THREE_DOTS: &str = "...";
         const COMMIT_HASH_LENGTH: usize = 8;
         const IS_HEAD_STAR_LENGTH: usize = 3; // "*  "
-        const THREE_DOTS_LENGTH: usize = 3; // "..."
+        const THREE_DOTS_LENGTH: usize = THREE_DOTS.len(); // "..."
 
         let branch_name_length: usize =
             width_available as usize * 40 / 100;
@@ -398,7 +397,7 @@ impl BranchListComponent {
         for (i, displaybranch) in self
             .branches
             .iter()
-            .skip(self.scroll_top.get())
+            .skip(self.scroll.get_top())
             .take(height)
             .enumerate()
         {
@@ -409,7 +408,7 @@ impl BranchListComponent {
                     commit_message_length
                         .saturating_sub(THREE_DOTS_LENGTH),
                 );
-                commit_message += "...";
+                commit_message += THREE_DOTS;
             }
 
             let mut branch_name = displaybranch.name.clone();
@@ -423,25 +422,27 @@ impl BranchListComponent {
                     )
                     .0
                     .to_string();
-                branch_name += "...";
+                branch_name += THREE_DOTS;
             }
 
-            let selected =
-                self.selection as usize - self.scroll_top.get() == i;
+            let selected = (self.selection as usize
+                - self.scroll.get_top())
+                == i;
 
             let is_head = displaybranch
                 .local_details()
                 .map(|details| details.is_head)
                 .unwrap_or_default();
-            let is_head_str = if is_head { "*" } else { " " };
+            let is_head_str =
+                if is_head { HEAD_SYMBOL } else { EMPTY_SYMBOL };
             let has_upstream_str = if displaybranch
                 .local_details()
                 .map(|details| details.has_upstream)
                 .unwrap_or_default()
             {
-                "\u{2191}"
+                UPSTREAM_SYMBOL
             } else {
-                " "
+                EMPTY_SYMBOL
             };
 
             let span_prefix = Span::styled(
@@ -490,7 +491,7 @@ impl BranchListComponent {
                 asyncgit::CWD,
                 &self.branches[self.selection as usize].reference,
             )?;
-            self.hide()
+            self.hide();
         } else {
             checkout_remote_branch(
                 CWD,
@@ -500,9 +501,7 @@ impl BranchListComponent {
             self.update_branches()?;
         }
 
-        self.queue
-            .borrow_mut()
-            .push_back(InternalEvent::Update(NeedsUpdate::ALL));
+        self.queue.push(InternalEvent::Update(NeedsUpdate::ALL));
 
         Ok(())
     }
@@ -537,11 +536,11 @@ impl BranchListComponent {
         let height_in_lines = r.height as usize;
         self.current_height.set(height_in_lines.try_into()?);
 
-        self.scroll_top.set(calc_scroll_top(
-            self.scroll_top.get(),
-            height_in_lines,
+        self.scroll.update(
             self.selection as usize,
-        ));
+            self.branches.len(),
+            height_in_lines,
+        );
 
         f.render_widget(
             Paragraph::new(self.get_text(
@@ -558,13 +557,7 @@ impl BranchListComponent {
         r.height += 2;
         r.y = r.y.saturating_sub(1);
 
-        ui::draw_scrollbar(
-            f,
-            r,
-            &self.theme,
-            self.branches.len().saturating_sub(height_in_lines),
-            self.scroll_top.get(),
-        );
+        self.scroll.draw(f, r, &self.theme);
 
         Ok(())
     }

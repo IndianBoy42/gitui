@@ -1,71 +1,81 @@
 use super::CommitId;
 use crate::error::Result;
-use git2::{Repository, Revwalk};
+use git2::{Commit, Oid, Repository};
+use std::{
+    cmp::Ordering,
+    collections::{BinaryHeap, HashSet},
+};
 
-///
-pub enum Mode {
-    HeadOnly,
-    AllRefs,
+struct TimeOrderedCommit<'a>(Commit<'a>);
+
+impl<'a> Eq for TimeOrderedCommit<'a> {}
+
+impl<'a> PartialEq for TimeOrderedCommit<'a> {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.time().eq(&other.0.time())
+    }
+}
+
+impl<'a> PartialOrd for TimeOrderedCommit<'a> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.0.time().partial_cmp(&other.0.time())
+    }
+}
+
+impl<'a> Ord for TimeOrderedCommit<'a> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.0.time().cmp(&other.0.time())
+    }
 }
 
 ///
 pub struct LogWalker<'a> {
-    repo: &'a Repository,
-    revwalk: Option<Revwalk<'a>>,
-    mode: Mode,
+    commits: BinaryHeap<TimeOrderedCommit<'a>>,
+    visited: HashSet<Oid>,
+    limit: usize,
 }
 
 impl<'a> LogWalker<'a> {
     ///
-    pub const fn new(repo: &'a Repository) -> Self {
-        Self {
-            repo,
-            revwalk: None,
-            mode: Mode::HeadOnly,
-        }
+    pub fn new(repo: &'a Repository, limit: usize) -> Result<Self> {
+        let c = repo.head()?.peel_to_commit()?;
+
+        let mut commits = BinaryHeap::with_capacity(10);
+        commits.push(TimeOrderedCommit(c));
+
+        Ok(Self {
+            commits,
+            limit,
+            visited: HashSet::with_capacity(1000),
+        })
     }
 
     ///
-    pub const fn mode(self, mode: Mode) -> Self {
-        let mut res = self;
-        res.mode = mode;
-        res
-    }
-
-    ///
-    pub fn read(
-        &mut self,
-        out: &mut Vec<CommitId>,
-        limit: usize,
-    ) -> Result<usize> {
+    pub fn read(&mut self, out: &mut Vec<CommitId>) -> Result<usize> {
         let mut count = 0_usize;
 
-        if self.revwalk.is_none() {
-            let mut walk = self.repo.revwalk()?;
-
-            // note: setting a sorting sifnificantly slows down big revwalks
-
-            if matches!(self.mode, Mode::HeadOnly) {
-                walk.push_head()?;
-            } else {
-                walk.push_glob("*")?;
+        while let Some(c) = self.commits.pop() {
+            for p in c.0.parents() {
+                self.visit(p);
             }
 
-            self.revwalk = Some(walk);
-        }
+            out.push(c.0.id().into());
 
-        if let Some(ref mut walk) = self.revwalk {
-            for id in walk.into_iter().flatten() {
-                out.push(id.into());
-                count += 1;
-
-                if count == limit {
-                    break;
-                }
+            count += 1;
+            if count == self.limit {
+                break;
             }
         }
 
         Ok(count)
+    }
+
+    //
+    fn visit(&mut self, c: Commit<'a>) {
+        if !self.visited.contains(&c.id()) {
+            self.visited.insert(c.id());
+            self.commits.push(TimeOrderedCommit(c));
+        }
     }
 }
 
@@ -73,11 +83,9 @@ impl<'a> LogWalker<'a> {
 mod tests {
     use super::*;
     use crate::sync::{
-        checkout_branch, commit, create_branch, get_commits_info,
-        stage_add_file,
-        tests::{repo_init_empty, write_commit_file_at},
+        commit, get_commits_info, stage_add_file,
+        tests::repo_init_empty,
     };
-    use git2::Time;
     use pretty_assertions::assert_eq;
     use std::{fs::File, io::Write, path::Path};
 
@@ -96,8 +104,8 @@ mod tests {
         let oid2 = commit(repo_path, "commit2").unwrap();
 
         let mut items = Vec::new();
-        let mut walk = LogWalker::new(&repo);
-        walk.read(&mut items, 1).unwrap();
+        let mut walk = LogWalker::new(&repo, 1)?;
+        walk.read(&mut items).unwrap();
 
         assert_eq!(items.len(), 1);
         assert_eq!(items[0], oid2.into());
@@ -120,8 +128,8 @@ mod tests {
         let oid2 = commit(repo_path, "commit2").unwrap();
 
         let mut items = Vec::new();
-        let mut walk = LogWalker::new(&repo);
-        walk.read(&mut items, 100).unwrap();
+        let mut walk = LogWalker::new(&repo, 100)?;
+        walk.read(&mut items).unwrap();
 
         let info = get_commits_info(repo_path, &items, 50).unwrap();
         dbg!(&info);
@@ -130,66 +138,10 @@ mod tests {
         assert_eq!(items[0], oid2.into());
 
         let mut items = Vec::new();
-        walk.read(&mut items, 100).unwrap();
+        walk.read(&mut items).unwrap();
 
         assert_eq!(items.len(), 0);
 
         Ok(())
-    }
-
-    fn walk_all_commits(repo: &Repository) -> Vec<CommitId> {
-        let mut items = Vec::new();
-        let mut walk = LogWalker::new(&repo).mode(Mode::AllRefs);
-        walk.read(&mut items, 10).unwrap();
-        items
-    }
-
-    #[test]
-    fn test_multiple_branches() {
-        let (td, repo) = repo_init_empty().unwrap();
-        let repo_path = td.path().to_string_lossy();
-
-        let c1 = write_commit_file_at(
-            &repo,
-            "test.txt",
-            "",
-            "c1",
-            Time::new(1, 0),
-        );
-
-        let items = walk_all_commits(&repo);
-
-        assert_eq!(items, vec![c1]);
-
-        let b1 = create_branch(&repo_path, "b1").unwrap();
-
-        let c2 = write_commit_file_at(
-            &repo,
-            "test2.txt",
-            "",
-            "c2",
-            Time::new(2, 0),
-        );
-
-        let items = walk_all_commits(&repo);
-        assert_eq!(items, vec![c2, c1]);
-
-        let _b2 = create_branch(&repo_path, "b2").unwrap();
-
-        let c3 = write_commit_file_at(
-            &repo,
-            "test3.txt",
-            "",
-            "c3",
-            Time::new(3, 0),
-        );
-
-        let items = walk_all_commits(&repo);
-        assert_eq!(items, vec![c2, c3, c1]);
-
-        checkout_branch(&repo_path, &b1).unwrap();
-
-        let items = walk_all_commits(&repo);
-        assert_eq!(items, vec![c2, c3, c1]);
     }
 }

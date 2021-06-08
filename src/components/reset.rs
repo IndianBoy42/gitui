@@ -91,7 +91,7 @@ impl Component for ResetComponent {
     }
 
     fn hide(&mut self) {
-        self.visible = false
+        self.visible = false;
     }
 
     fn show(&mut self) -> Result<()> {
@@ -126,9 +126,7 @@ impl ResetComponent {
     ///
     pub fn confirm(&mut self) {
         if let Some(a) = self.target.take() {
-            self.queue
-                .borrow_mut()
-                .push_back(InternalEvent::ConfirmedAction(a));
+            self.queue.push(InternalEvent::ConfirmedAction(a));
         }
 
         self.hide();

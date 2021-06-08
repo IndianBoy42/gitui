@@ -3,6 +3,7 @@ use unicode_width::UnicodeWidthStr;
 
 pub mod filetree;
 pub mod logitems;
+pub mod scroll_vertical;
 pub mod statustree;
 
 /// macro to simplify running code that might return Err.
@@ -12,12 +13,10 @@ macro_rules! try_or_popup {
     ($self:ident, $msg:literal, $e:expr) => {
         if let Err(err) = $e {
             ::log::error!("{} {}", $msg, err);
-            $self.queue.borrow_mut().push_back(
-                InternalEvent::ShowErrorMsg(format!(
-                    "{}\n{}",
-                    $msg, err
-                )),
-            );
+            $self.queue.push(InternalEvent::ShowErrorMsg(format!(
+                "{}\n{}",
+                $msg, err
+            )));
         }
     };
 }

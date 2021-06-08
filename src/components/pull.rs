@@ -19,7 +19,8 @@ use asyncgit::{
         },
         get_default_remote,
     },
-    AsyncFetch, AsyncNotification, FetchRequest, RemoteProgress, CWD,
+    AsyncFetch, AsyncGitNotification, FetchRequest, RemoteProgress,
+    CWD,
 };
 use crossbeam_channel::Sender;
 use crossterm::event::Event;
@@ -48,7 +49,7 @@ impl PullComponent {
     ///
     pub fn new(
         queue: &Queue,
-        sender: &Sender<AsyncNotification>,
+        sender: &Sender<AsyncGitNotification>,
         theme: SharedTheme,
         key_config: SharedKeyConfig,
     ) -> Self {
@@ -111,10 +112,10 @@ impl PullComponent {
     ///
     pub fn update_git(
         &mut self,
-        ev: AsyncNotification,
+        ev: AsyncGitNotification,
     ) -> Result<()> {
         if self.is_visible() {
-            if let AsyncNotification::Fetch = ev {
+            if let AsyncGitNotification::Fetch = ev {
                 self.update()?;
             }
         }
@@ -136,12 +137,9 @@ impl PullComponent {
                 } else {
                     self.pending = false;
                     self.hide();
-                    self.queue.borrow_mut().push_back(
-                        InternalEvent::ShowErrorMsg(format!(
-                            "fetch failed:\n{}",
-                            err
-                        )),
-                    );
+                    self.queue.push(InternalEvent::ShowErrorMsg(
+                        format!("fetch failed:\n{}", err),
+                    ));
                 }
             }
         }
@@ -186,13 +184,13 @@ impl PullComponent {
     }
 
     fn confirm_merge(&mut self, incoming: usize) {
-        self.queue.borrow_mut().push_back(
-            InternalEvent::ConfirmAction(Action::PullMerge {
+        self.queue.push(InternalEvent::ConfirmAction(
+            Action::PullMerge {
                 incoming,
                 rebase: sync::config_is_pull_rebase(CWD)
                     .unwrap_or_default(),
-            }),
-        );
+            },
+        ));
         self.hide();
     }
 }
@@ -240,20 +238,22 @@ impl Component for PullComponent {
         out: &mut Vec<CommandInfo>,
         force_all: bool,
     ) -> CommandBlocking {
-        if self.is_visible() {
-            out.clear();
-        }
+        if self.is_visible() || force_all {
+            if !force_all {
+                out.clear();
+            }
 
-        if self.input_cred.is_visible() {
-            self.input_cred.commands(out, force_all)
-        } else {
+            if self.input_cred.is_visible() {
+                return self.input_cred.commands(out, force_all);
+            }
             out.push(CommandInfo::new(
                 strings::commands::close_msg(&self.key_config),
                 !self.pending,
                 self.visible,
             ));
-            visibility_blocking(self)
         }
+
+        visibility_blocking(self)
     }
 
     fn event(&mut self, ev: Event) -> Result<EventState> {
@@ -282,7 +282,7 @@ impl Component for PullComponent {
     }
 
     fn hide(&mut self) {
-        self.visible = false
+        self.visible = false;
     }
 
     fn show(&mut self) -> Result<()> {

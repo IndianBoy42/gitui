@@ -17,7 +17,7 @@ use asyncgit::{
         },
         get_branch_remote, get_default_remote,
     },
-    AsyncNotification, AsyncPush, PushRequest, RemoteProgress,
+    AsyncGitNotification, AsyncPush, PushRequest, RemoteProgress,
     RemoteProgressState, CWD,
 };
 use crossbeam_channel::Sender;
@@ -48,7 +48,7 @@ impl PushComponent {
     ///
     pub fn new(
         queue: &Queue,
-        sender: &Sender<AsyncNotification>,
+        sender: &Sender<AsyncGitNotification>,
         theme: SharedTheme,
         key_config: SharedKeyConfig,
     ) -> Self {
@@ -130,10 +130,10 @@ impl PushComponent {
     ///
     pub fn update_git(
         &mut self,
-        ev: AsyncNotification,
+        ev: AsyncGitNotification,
     ) -> Result<()> {
         if self.is_visible() {
-            if let AsyncNotification::Push = ev {
+            if let AsyncGitNotification::Push = ev {
                 self.update()?;
             }
         }
@@ -148,12 +148,9 @@ impl PushComponent {
 
         if !self.pending {
             if let Some(err) = self.git_push.last_result()? {
-                self.queue.borrow_mut().push_back(
-                    InternalEvent::ShowErrorMsg(format!(
-                        "push failed:\n{}",
-                        err
-                    )),
-                );
+                self.queue.push(InternalEvent::ShowErrorMsg(
+                    format!("push failed:\n{}", err),
+                ));
             }
             self.hide();
         }
@@ -250,20 +247,22 @@ impl Component for PushComponent {
         out: &mut Vec<CommandInfo>,
         force_all: bool,
     ) -> CommandBlocking {
-        if self.is_visible() {
-            out.clear();
-        }
+        if self.is_visible() || force_all {
+            if !force_all {
+                out.clear();
+            }
 
-        if self.input_cred.is_visible() {
-            self.input_cred.commands(out, force_all)
-        } else {
+            if self.input_cred.is_visible() {
+                return self.input_cred.commands(out, force_all);
+            }
             out.push(CommandInfo::new(
                 strings::commands::close_msg(&self.key_config),
                 !self.pending,
                 self.visible,
             ));
-            visibility_blocking(self)
         }
+
+        visibility_blocking(self)
     }
 
     fn event(&mut self, ev: Event) -> Result<EventState> {
@@ -297,7 +296,7 @@ impl Component for PushComponent {
     }
 
     fn hide(&mut self) {
-        self.visible = false
+        self.visible = false;
     }
 
     fn show(&mut self) -> Result<()> {

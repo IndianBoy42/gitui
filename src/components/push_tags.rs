@@ -17,7 +17,7 @@ use asyncgit::{
         },
         get_default_remote, AsyncProgress, PushTagsProgress,
     },
-    AsyncNotification, AsyncPushTags, PushTagsRequest, CWD,
+    AsyncGitNotification, AsyncPushTags, PushTagsRequest, CWD,
 };
 use crossbeam_channel::Sender;
 use crossterm::event::Event;
@@ -45,7 +45,7 @@ impl PushTagsComponent {
     ///
     pub fn new(
         queue: &Queue,
-        sender: &Sender<AsyncNotification>,
+        sender: &Sender<AsyncGitNotification>,
         theme: SharedTheme,
         key_config: SharedKeyConfig,
     ) -> Self {
@@ -99,10 +99,10 @@ impl PushTagsComponent {
     ///
     pub fn update_git(
         &mut self,
-        ev: AsyncNotification,
+        ev: AsyncGitNotification,
     ) -> Result<()> {
         if self.is_visible() {
-            if let AsyncNotification::PushTags = ev {
+            if let AsyncGitNotification::PushTags = ev {
                 self.update()?;
             }
         }
@@ -117,12 +117,9 @@ impl PushTagsComponent {
 
         if !self.pending {
             if let Some(err) = self.git_push.last_result()? {
-                self.queue.borrow_mut().push_back(
-                    InternalEvent::ShowErrorMsg(format!(
-                        "push tags failed:\n{}",
-                        err
-                    )),
-                );
+                self.queue.push(InternalEvent::ShowErrorMsg(
+                    format!("push tags failed:\n{}", err),
+                ));
             }
             self.hide();
         }
@@ -207,20 +204,22 @@ impl Component for PushTagsComponent {
         out: &mut Vec<CommandInfo>,
         force_all: bool,
     ) -> CommandBlocking {
-        if self.is_visible() {
-            out.clear();
-        }
+        if self.is_visible() || force_all {
+            if !force_all {
+                out.clear();
+            }
 
-        if self.input_cred.is_visible() {
-            self.input_cred.commands(out, force_all)
-        } else {
+            if self.input_cred.is_visible() {
+                return self.input_cred.commands(out, force_all);
+            }
+
             out.push(CommandInfo::new(
                 strings::commands::close_msg(&self.key_config),
                 !self.pending,
                 self.visible,
             ));
-            visibility_blocking(self)
         }
+        visibility_blocking(self)
     }
 
     fn event(&mut self, ev: Event) -> Result<EventState> {
@@ -253,7 +252,7 @@ impl Component for PushTagsComponent {
     }
 
     fn hide(&mut self) {
-        self.visible = false
+        self.visible = false;
     }
 
     fn show(&mut self) -> Result<()> {

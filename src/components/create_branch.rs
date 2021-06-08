@@ -75,7 +75,7 @@ impl Component for CreateBranchComponent {
     }
 
     fn hide(&mut self) {
-        self.input.hide()
+        self.input.hide();
     }
 
     fn show(&mut self) -> Result<()> {
@@ -122,18 +122,15 @@ impl CreateBranchComponent {
 
         match res {
             Ok(_) => {
-                self.queue.borrow_mut().push_back(
-                    InternalEvent::Update(NeedsUpdate::BRANCHES),
-                );
+                self.queue.push(InternalEvent::Update(
+                    NeedsUpdate::BRANCHES,
+                ));
             }
             Err(e) => {
                 log::error!("create branch: {}", e,);
-                self.queue.borrow_mut().push_back(
-                    InternalEvent::ShowErrorMsg(format!(
-                        "create branch error:\n{}",
-                        e,
-                    )),
-                );
+                self.queue.push(InternalEvent::ShowErrorMsg(
+                    format!("create branch error:\n{}", e,),
+                ));
             }
         }
     }

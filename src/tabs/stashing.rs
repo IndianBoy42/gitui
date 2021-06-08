@@ -11,7 +11,10 @@ use crate::{
     ui::style::SharedTheme,
 };
 use anyhow::Result;
-use asyncgit::{AsyncNotification, AsyncStatus,  StatusParams, sync::status::StatusType};
+use asyncgit::{
+    sync::{self, status::StatusType},
+    AsyncGitNotification, AsyncStatus, StatusParams, CWD,
+};
 use crossbeam_channel::Sender;
 use crossterm::event::Event;
 use std::borrow::Cow;
@@ -42,7 +45,7 @@ impl Stashing {
 
     ///
     pub fn new(
-        sender: &Sender<AsyncNotification>,
+        sender: &Sender<AsyncGitNotification>,
         queue: &Queue,
         theme: SharedTheme,
         key_config: SharedKeyConfig,
@@ -88,10 +91,10 @@ impl Stashing {
     ///
     pub fn update_git(
         &mut self,
-        ev: AsyncNotification,
+        ev: AsyncGitNotification,
     ) -> Result<()> {
         if self.is_visible() {
-            if let AsyncNotification::Status = ev {
+            if let AsyncGitNotification::Status = ev {
                 let status = self.git_status.last()?;
                 self.index.update(&status.items)?;
             }
@@ -221,9 +224,9 @@ impl Component for Stashing {
                 return if k == self.key_config.stashing_save
                     && !self.index.is_empty()
                 {
-                    self.queue.borrow_mut().push_back(
-                        InternalEvent::PopupStashing(self.options),
-                    );
+                    self.queue.push(InternalEvent::PopupStashing(
+                        self.options,
+                    ));
 
                     Ok(EventState::Consumed)
                 } else if k == self.key_config.stashing_toggle_index {

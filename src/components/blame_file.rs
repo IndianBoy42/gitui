@@ -12,7 +12,7 @@ use crate::{
 use anyhow::Result;
 use asyncgit::{
     sync::{BlameHunk, CommitId, FileBlame},
-    AsyncBlame, AsyncNotification, BlameParams,
+    AsyncBlame, AsyncGitNotification, BlameParams,
 };
 use crossbeam_channel::Sender;
 use crossterm::event::Event;
@@ -209,7 +209,7 @@ impl Component for BlameFileComponent {
                     return self.selected_commit().map_or(
                         Ok(EventState::NotConsumed),
                         |id| {
-                            self.queue.borrow_mut().push_back(
+                            self.queue.push(
                                 InternalEvent::InspectCommit(
                                     id, None,
                                 ),
@@ -231,7 +231,7 @@ impl Component for BlameFileComponent {
     }
 
     fn hide(&mut self) {
-        self.visible = false
+        self.visible = false;
     }
 
     fn show(&mut self) -> Result<()> {
@@ -245,7 +245,7 @@ impl BlameFileComponent {
     ///
     pub fn new(
         queue: &Queue,
-        sender: &Sender<AsyncNotification>,
+        sender: &Sender<AsyncGitNotification>,
         title: &str,
         theme: SharedTheme,
         key_config: SharedKeyConfig,
@@ -284,11 +284,11 @@ impl BlameFileComponent {
     ///
     pub fn update_git(
         &mut self,
-        event: AsyncNotification,
+        event: AsyncGitNotification,
     ) -> Result<()> {
         if self.is_visible() {
-            if let AsyncNotification::Blame = event {
-                self.update()?
+            if let AsyncGitNotification::Blame = event {
+                self.update()?;
             }
         }
 

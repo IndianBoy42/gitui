@@ -7,7 +7,7 @@ use crate::{
         FileTreeItemKind,
     },
     keys::SharedKeyConfig,
-    queue::{Action, InternalEvent, Queue, ResetItem},
+    queue::{Action, InternalEvent, NeedsUpdate, Queue, ResetItem},
     strings, try_or_popup,
     ui::style::SharedTheme,
 };
@@ -16,8 +16,8 @@ use asyncgit::{
     cached,
     sync::BranchCompare,
     sync::{self, status::StatusType, RepoState},
-    AsyncDiff, AsyncNotification, AsyncStatus, DiffParams, DiffType,
-    StatusParams, CWD,
+    AsyncDiff, AsyncGitNotification, AsyncStatus, DiffParams,
+    DiffType, StatusParams, CWD,
 };
 use crossbeam_channel::Sender;
 use crossterm::event::Event;
@@ -131,7 +131,7 @@ impl Status {
     ///
     pub fn new(
         queue: &Queue,
-        sender: &Sender<AsyncNotification>,
+        sender: &Sender<AsyncGitNotification>,
         theme: SharedTheme,
         key_config: SharedKeyConfig,
     ) -> Self {
@@ -339,14 +339,16 @@ impl Status {
     ///
     pub fn update_git(
         &mut self,
-        ev: AsyncNotification,
+        ev: AsyncGitNotification,
     ) -> Result<()> {
         match ev {
-            AsyncNotification::Diff => self.update_diff()?,
-            AsyncNotification::Status => self.update_status()?,
-            AsyncNotification::Push
-            | AsyncNotification::Fetch
-            | AsyncNotification::CommitFiles => self.branch_compare(),
+            AsyncGitNotification::Diff => self.update_diff()?,
+            AsyncGitNotification::Status => self.update_status()?,
+            AsyncGitNotification::Push
+            | AsyncGitNotification::Fetch
+            | AsyncGitNotification::CommitFiles => {
+                self.branch_compare();
+            }
             _ => (),
         }
 
@@ -399,7 +401,7 @@ impl Status {
                 // maybe the diff changed (outside file change)
                 if let Some((params, last)) = self.git_diff.last()? {
                     if params == diff_params {
-                        self.diff.update(path, is_stage, last)?;
+                        self.diff.update(path, is_stage, last);
                     }
                 }
             } else {
@@ -407,13 +409,13 @@ impl Status {
                 if let Some(diff) =
                     self.git_diff.request(diff_params)?
                 {
-                    self.diff.update(path, is_stage, diff)?;
+                    self.diff.update(path, is_stage, diff);
                 } else {
-                    self.diff.clear(true)?;
+                    self.diff.clear(true);
                 }
             }
         } else {
-            self.diff.clear(false)?;
+            self.diff.clear(false);
         }
 
         Ok(())
@@ -422,12 +424,10 @@ impl Status {
     /// called after confirmation
     pub fn reset(&mut self, item: &ResetItem) -> bool {
         if let Err(e) = sync::reset_workdir(CWD, item.path.as_str()) {
-            self.queue.borrow_mut().push_back(
-                InternalEvent::ShowErrorMsg(format!(
-                    "reset failed:\n{}",
-                    e
-                )),
-            );
+            self.queue.push(InternalEvent::ShowErrorMsg(format!(
+                "reset failed:\n{}",
+                e
+            )));
 
             false
         } else {
@@ -446,15 +446,12 @@ impl Status {
         if self.can_push() {
             if let Some(branch) = self.git_branch_name.last() {
                 if force {
-                    self.queue.borrow_mut().push_back(
-                        InternalEvent::ConfirmAction(
-                            Action::ForcePush(branch, force),
-                        ),
-                    );
+                    self.queue.push(InternalEvent::ConfirmAction(
+                        Action::ForcePush(branch, force),
+                    ));
                 } else {
-                    self.queue.borrow_mut().push_back(
-                        InternalEvent::Push(branch, force),
-                    );
+                    self.queue
+                        .push(InternalEvent::Push(branch, force));
                 }
             }
         }
@@ -462,10 +459,16 @@ impl Status {
 
     fn pull(&self) {
         if let Some(branch) = self.git_branch_name.last() {
-            self.queue
-                .borrow_mut()
-                .push_back(InternalEvent::Pull(branch));
+            self.queue.push(InternalEvent::Pull(branch));
         }
+    }
+
+    fn undo_last_commit(&self) {
+        try_or_popup!(
+            self,
+            "undo commit failed:",
+            sync::utils::undo_last_commit(CWD)
+        );
     }
 
     fn branch_compare(&mut self) {
@@ -488,7 +491,7 @@ impl Status {
     }
 
     pub fn abort_merge(&self) {
-        try_or_popup!(self, "abort merge", sync::abort_merge(CWD))
+        try_or_popup!(self, "abort merge", sync::abort_merge(CWD));
     }
 
     fn commands_nav(
@@ -580,6 +583,12 @@ impl Component for Status {
             ));
 
             out.push(CommandInfo::new(
+                strings::commands::undo_commit(&self.key_config),
+                true,
+                !focus_on_diff,
+            ));
+
+            out.push(CommandInfo::new(
                 strings::commands::abort_merge(&self.key_config),
                 true,
                 Self::can_abort_merge() || force_all,
@@ -632,7 +641,7 @@ impl Component for Status {
                         || self.is_focus_on_diff())
                 {
                     if let Some((path, _)) = self.selected_path() {
-                        self.queue.borrow_mut().push_back(
+                        self.queue.push(
                             InternalEvent::OpenExternalEditor(Some(
                                 path,
                             )),
@@ -667,9 +676,7 @@ impl Component for Status {
                 } else if k == self.key_config.select_branch
                     && !self.is_focus_on_diff()
                 {
-                    self.queue
-                        .borrow_mut()
-                        .push_back(InternalEvent::SelectBranch);
+                    self.queue.push(InternalEvent::SelectBranch);
                     Ok(EventState::Consumed)
                 } else if k == self.key_config.force_push
                     && !self.is_focus_on_diff()
@@ -687,14 +694,20 @@ impl Component for Status {
                 {
                     self.pull();
                     Ok(EventState::Consumed)
+                } else if k == self.key_config.undo_commit
+                    && !self.is_focus_on_diff()
+                {
+                    self.undo_last_commit();
+                    self.queue.push(InternalEvent::Update(
+                        NeedsUpdate::ALL,
+                    ));
+                    Ok(EventState::Consumed)
                 } else if k == self.key_config.abort_merge
                     && Self::can_abort_merge()
                 {
-                    self.queue.borrow_mut().push_back(
-                        InternalEvent::ConfirmAction(
-                            Action::AbortMerge,
-                        ),
-                    );
+                    self.queue.push(InternalEvent::ConfirmAction(
+                        Action::AbortMerge,
+                    ));
 
                     Ok(EventState::Consumed)
                 } else {

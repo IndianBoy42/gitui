@@ -157,9 +157,9 @@ impl Component for ExternalEditorComponent {
     fn commands(
         &self,
         out: &mut Vec<CommandInfo>,
-        _force_all: bool,
+        force_all: bool,
     ) -> CommandBlocking {
-        if self.visible {
+        if self.visible && !force_all {
             out.clear();
         }
 
@@ -179,7 +179,7 @@ impl Component for ExternalEditorComponent {
     }
 
     fn hide(&mut self) {
-        self.visible = false
+        self.visible = false;
     }
 
     fn show(&mut self) -> Result<()> {

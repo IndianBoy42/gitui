@@ -20,7 +20,7 @@ use crate::{
     ui::style::{SharedTheme, Theme},
 };
 use anyhow::{bail, Result};
-use asyncgit::{sync, AsyncNotification, CWD};
+use asyncgit::{sync, AsyncGitNotification, CWD};
 use crossbeam_channel::Sender;
 use crossterm::event::{Event, KeyEvent};
 use std::{
@@ -78,12 +78,12 @@ impl App {
     ///
     #[allow(clippy::too_many_lines)]
     pub fn new(
-        sender: &Sender<AsyncNotification>,
+        sender: &Sender<AsyncGitNotification>,
         input: Input,
         theme: Theme,
         key_config: KeyConfig,
     ) -> Self {
-        let queue = Queue::default();
+        let queue = Queue::new();
         let theme = Rc::new(theme);
         let key_config = Rc::new(key_config);
 
@@ -328,7 +328,7 @@ impl App {
     pub fn update(&mut self) -> Result<()> {
         log::trace!("update");
 
-        self.commit.update()?;
+        self.commit.update();
         self.status_tab.update()?;
         self.revlog.update()?;
         self.files_tab.update()?;
@@ -343,13 +343,13 @@ impl App {
     ///
     pub fn update_git(
         &mut self,
-        ev: AsyncNotification,
+        ev: AsyncGitNotification,
     ) -> Result<()> {
         log::trace!("update_git: {:?}", ev);
 
         self.status_tab.update_git(ev)?;
         self.stashing_tab.update_git(ev)?;
-        self.files_tab.update_git(ev)?;
+        self.files_tab.update_git(ev);
         self.revlog.update_git(ev)?;
         self.blame_file_popup.update_git(ev)?;
         self.inspect_commit_popup.update_git(ev)?;
@@ -482,15 +482,15 @@ impl App {
 
     fn switch_tab(&mut self, k: KeyEvent) -> Result<()> {
         if k == self.key_config.tab_status {
-            self.set_tab(0)?
+            self.set_tab(0)?;
         } else if k == self.key_config.tab_log {
-            self.set_tab(1)?
+            self.set_tab(1)?;
         } else if k == self.key_config.tab_files {
-            self.set_tab(2)?
+            self.set_tab(2)?;
         } else if k == self.key_config.tab_stashing {
-            self.set_tab(3)?
+            self.set_tab(3)?;
         } else if k == self.key_config.tab_stashes {
-            self.set_tab(4)?
+            self.set_tab(4)?;
         }
 
         Ok(())
@@ -544,14 +544,14 @@ impl App {
         let mut flags = NeedsUpdate::empty();
 
         loop {
-            let front = self.queue.borrow_mut().pop_front();
+            let front = self.queue.pop();
             if let Some(e) = front {
                 flags.insert(self.process_internal_event(e)?);
             } else {
                 break;
             }
         }
-        self.queue.borrow_mut().clear();
+        self.queue.clear();
 
         Ok(flags)
     }
@@ -578,14 +578,15 @@ impl App {
             InternalEvent::OpenCommit => self.commit.show()?,
             InternalEvent::PopupStashing(opts) => {
                 self.stashmsg_popup.options(opts);
-                self.stashmsg_popup.show()?
+                self.stashmsg_popup.show()?;
             }
             InternalEvent::TagCommit(id) => {
                 self.tag_commit_popup.open(id)?;
             }
             InternalEvent::BlameFile(path) => {
                 self.blame_file_popup.open(&path)?;
-                flags.insert(NeedsUpdate::ALL | NeedsUpdate::COMMANDS)
+                flags
+                    .insert(NeedsUpdate::ALL | NeedsUpdate::COMMANDS);
             }
             InternalEvent::CreateBranch => {
                 self.create_branch_popup.open()?;
@@ -603,44 +604,44 @@ impl App {
             InternalEvent::TabSwitch => self.set_tab(0)?,
             InternalEvent::InspectCommit(id, tags) => {
                 self.inspect_commit_popup.open(id, tags)?;
-                flags.insert(NeedsUpdate::ALL | NeedsUpdate::COMMANDS)
+                flags
+                    .insert(NeedsUpdate::ALL | NeedsUpdate::COMMANDS);
             }
             InternalEvent::SelectCommitInRevlog(id) => {
                 if let Err(error) = self.revlog.select_commit(id) {
-                    self.queue.borrow_mut().push_back(
-                        InternalEvent::ShowErrorMsg(
-                            error.to_string(),
-                        ),
-                    )
+                    self.queue.push(InternalEvent::ShowErrorMsg(
+                        error.to_string(),
+                    ));
                 } else {
                     self.tags_popup.hide();
-                    flags.insert(NeedsUpdate::ALL)
+                    flags.insert(NeedsUpdate::ALL);
                 }
             }
             InternalEvent::OpenExternalEditor(path) => {
                 self.input.set_polling(false);
                 self.external_editor_popup.show()?;
                 self.file_to_open = path;
-                flags.insert(NeedsUpdate::COMMANDS)
+                flags.insert(NeedsUpdate::COMMANDS);
             }
             InternalEvent::Push(branch, force) => {
                 self.push_popup.push(branch, force)?;
-                flags.insert(NeedsUpdate::ALL)
+                flags.insert(NeedsUpdate::ALL);
             }
             InternalEvent::Pull(branch) => {
                 self.pull_popup.fetch(branch)?;
-                flags.insert(NeedsUpdate::ALL)
+                flags.insert(NeedsUpdate::ALL);
             }
             InternalEvent::PushTags => {
                 self.push_tags_popup.push_tags()?;
-                flags.insert(NeedsUpdate::ALL)
+                flags.insert(NeedsUpdate::ALL);
             }
             InternalEvent::StatusLastFileMoved => {
                 self.status_tab.last_file_moved()?;
             }
             InternalEvent::OpenFileTree(c) => {
                 self.revision_files_popup.open(c)?;
-                flags.insert(NeedsUpdate::ALL | NeedsUpdate::COMMANDS)
+                flags
+                    .insert(NeedsUpdate::ALL | NeedsUpdate::COMMANDS);
             }
         };
 
@@ -674,9 +675,9 @@ impl App {
             Action::DeleteBranch(branch_ref) => {
                 if let Err(e) = sync::delete_branch(CWD, &branch_ref)
                 {
-                    self.queue.borrow_mut().push_back(
-                        InternalEvent::ShowErrorMsg(e.to_string()),
-                    )
+                    self.queue.push(InternalEvent::ShowErrorMsg(
+                        e.to_string(),
+                    ));
                 } else {
                     flags.insert(NeedsUpdate::ALL);
                     self.select_branch_popup.update_branches()?;
@@ -684,20 +685,17 @@ impl App {
             }
             Action::DeleteTag(tag_name) => {
                 if let Err(error) = sync::delete_tag(CWD, &tag_name) {
-                    self.queue.borrow_mut().push_back(
-                        InternalEvent::ShowErrorMsg(
-                            error.to_string(),
-                        ),
-                    )
+                    self.queue.push(InternalEvent::ShowErrorMsg(
+                        error.to_string(),
+                    ));
                 } else {
                     flags.insert(NeedsUpdate::ALL);
                     self.tags_popup.update_tags()?;
                 }
             }
-            Action::ForcePush(branch, force) => self
-                .queue
-                .borrow_mut()
-                .push_back(InternalEvent::Push(branch, force)),
+            Action::ForcePush(branch, force) => {
+                self.queue.push(InternalEvent::Push(branch, force));
+            }
             Action::PullMerge { rebase, .. } => {
                 self.pull_popup.try_conflict_free_merge(rebase);
                 flags.insert(NeedsUpdate::ALL);

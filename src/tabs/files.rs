@@ -14,13 +14,12 @@ use crate::{
     ui::style::SharedTheme,
 };
 use anyhow::Result;
-use asyncgit::{sync, AsyncNotification, CWD};
+use asyncgit::{sync, AsyncGitNotification, CWD};
 use crossbeam_channel::Sender;
 
 pub struct FilesTab {
     visible: bool,
     theme: SharedTheme,
-    queue: Queue,
     key_config: SharedKeyConfig,
     files: RevisionFilesComponent,
 }
@@ -28,14 +27,13 @@ pub struct FilesTab {
 impl FilesTab {
     ///
     pub fn new(
-        sender: &Sender<AsyncNotification>,
+        sender: &Sender<AsyncGitNotification>,
         queue: &Queue,
         theme: SharedTheme,
         key_config: SharedKeyConfig,
     ) -> Self {
         Self {
             visible: false,
-            queue: queue.clone(),
             files: RevisionFilesComponent::new(
                 queue,
                 sender,
@@ -62,15 +60,10 @@ impl FilesTab {
     }
 
     ///
-    pub fn update_git(
-        &mut self,
-        ev: AsyncNotification,
-    ) -> Result<()> {
+    pub fn update_git(&mut self, ev: AsyncGitNotification) {
         if self.is_visible() {
             self.files.update(ev);
         }
-
-        Ok(())
     }
 }
 
