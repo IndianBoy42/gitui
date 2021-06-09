@@ -115,9 +115,7 @@ impl ChangesComponent {
     fn index_update_all(&mut self) -> Result<()> {
         sync::stage_update_all(CWD, "*")?;
 
-        self.queue
-            .borrow_mut()
-            .push_back(InternalEvent::Update(NeedsUpdate::ALL));
+        self.queue.push(InternalEvent::Update(NeedsUpdate::ALL));
 
         Ok(())
     }
@@ -283,9 +281,8 @@ impl Component for ChangesComponent {
                             self.index_update_all()
                         );
                     }
-                    self.queue.borrow_mut().push_back(
-                        InternalEvent::StatusLastFileMoved,
-                    );
+                    self.queue
+                        .push(InternalEvent::StatusLastFileMoved);
                     Ok(EventState::Consumed)
                 } else if e == self.key_config.status_stage_all
                     && !self.is_empty()

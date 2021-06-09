@@ -12,8 +12,8 @@ use crate::{
 };
 use anyhow::Result;
 use asyncgit::{
-    sync::{self, status::StatusType},
-    AsyncGitNotification, AsyncStatus, StatusParams, CWD,
+    sync::status::StatusType,
+    AsyncGitNotification, AsyncStatus, StatusParams,
 };
 use crossbeam_channel::Sender;
 use crossterm::event::Event;
