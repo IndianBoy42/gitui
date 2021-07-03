@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## Changed
+- `enter` adds *newline* to commit msg (*commit* via `ctrl+o` now) [[@WizardOhio24](https://github.com/WizardOhio24)] ([#509](https://github.com/extrawurst/gitui/issues/509))
+
 ## Added
 - new `undo-last-commit` command [[@remique](https://github.com/remique)] ([#758](https://github.com/extrawurst/gitui/issues/758))
 - taglist: show arrow-symbol on tags not present on origin [[@cruessler](https://github.com/cruessler)] ([#776](https://github.com/extrawurst/gitui/issues/776))

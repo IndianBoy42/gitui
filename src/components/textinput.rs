@@ -326,6 +326,13 @@ impl Component for TextInputComponent {
             )
             .order(1),
         );
+
+        out.push(CommandInfo::new(
+            strings::commands::commit_new_line(&self.key_config),
+            true,
+            self.visible,
+        ));
+
         visibility_blocking(self)
     }
 
@@ -334,6 +341,12 @@ impl Component for TextInputComponent {
             if let Event::Key(e) = ev {
                 if e == self.key_config.exit_popup {
                     self.hide();
+                    return Ok(EventState::Consumed);
+                } else if e == self.key_config.enter
+                    && self.input_type == InputType::Multiline
+                {
+                    self.msg.insert(self.cursor_position, '\n');
+                    self.incr_cursor();
                     return Ok(EventState::Consumed);
                 }
 

@@ -613,16 +613,28 @@ pub mod commands {
             CMD_GROUP_COMMIT,
         )
     }
-    pub fn commit_enter(key_config: &SharedKeyConfig) -> CommandText {
+    pub fn commit(key_config: &SharedKeyConfig) -> CommandText {
         CommandText::new(
             format!(
                 "Commit [{}]",
-                key_config.get_hint(key_config.enter),
+                key_config.get_hint(key_config.commit),
             ),
             "commit (available when commit message is non-empty)",
             CMD_GROUP_COMMIT,
         )
         .hide_help()
+    }
+    pub fn commit_new_line(
+        key_config: &SharedKeyConfig,
+    ) -> CommandText {
+        CommandText::new(
+            format!(
+                "New Line [{}]",
+                key_config.get_hint(key_config.enter),
+            ),
+            "make a new line in the commit message",
+            CMD_GROUP_COMMIT,
+        )
     }
     pub fn commit_amend(key_config: &SharedKeyConfig) -> CommandText {
         CommandText::new(
