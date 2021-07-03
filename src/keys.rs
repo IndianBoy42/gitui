@@ -9,7 +9,7 @@ use ron::{
 };
 use serde::{Deserialize, Serialize};
 use std::{
-    fs::{self, File},
+    fs::File,
     io::{Read, Write},
     path::PathBuf,
     rc::Rc,
@@ -183,18 +183,17 @@ impl KeyConfig {
         if file.exists() {
             match Self::read_file(file.clone()) {
                 Err(e) => {
-                    let config_path = file.clone();
-                    let config_path_old =
-                        format!("{}.old", file.to_string_lossy());
-                    fs::rename(
-                        config_path.clone(),
-                        config_path_old.clone(),
-                    )?;
+                    // let config_path = file.clone();
+                    // let config_path_old =
+                    //     format!("{}.old", file.to_string_lossy());
+                    // fs::rename(
+                    //     config_path.clone(),
+                    //     config_path_old.clone(),
+                    // )?;
 
-                    Self::default().save(file)?;
+                    // Self::default().save(file)?;
 
-                    Err(anyhow::anyhow!("{}\n Old file was renamed to {:?}.\n Defaults loaded and saved as {:?}",
-                        e,config_path_old,config_path.to_string_lossy()))
+                    Err(anyhow::anyhow!("{}\nKey config file invalid (pass --default-key-config TODO)", e))
                 }
                 Ok(res) => Ok(res),
             }
