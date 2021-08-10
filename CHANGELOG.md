@@ -7,18 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
-## Changed
-- `enter` adds *newline* to commit msg (*commit* via `ctrl+o` now) [[@WizardOhio24](https://github.com/WizardOhio24)] ([#509](https://github.com/extrawurst/gitui/issues/509))
+## Fixed
+- do not allow to ignore .gitignore files ([#825](https://github.com/extrawurst/gitui/issues/825))
+
+## [0.16.2] - 2021-07-10
+
+**undo last commit**
+
+![undo-last-commit](assets/undo-last-commit.gif)
+
+**mark local tags**
+
+![tag-remote-marker](assets/tag-remote-marker.gif)
 
 ## Added
-- new `undo-last-commit` command [[@remique](https://github.com/remique)] ([#758](https://github.com/extrawurst/gitui/issues/758))
 - taglist: show arrow-symbol on tags not present on origin [[@cruessler](https://github.com/cruessler)] ([#776](https://github.com/extrawurst/gitui/issues/776))
+- new `undo-last-commit` command [[@remique](https://github.com/remique)] ([#758](https://github.com/extrawurst/gitui/issues/758))
 - new quit key `[q]` ([#771](https://github.com/extrawurst/gitui/issues/771))
+- proper error message if remote rejects force push ([#801](https://github.com/extrawurst/gitui/issues/801))
 
 ## Fixed
 - openssl vendoring broken on macos ([#772](https://github.com/extrawurst/gitui/issues/772))
 - amend and other commands not shown in help ([#778](https://github.com/extrawurst/gitui/issues/778))
 - focus locked on commit msg details in narrow term sizes ([#780](https://github.com/extrawurst/gitui/issues/780))
+- non-utf8 file/path names broke filetree ([#802](https://github.com/extrawurst/gitui/issues/802))
 
 ## [0.16.1] - 2021-06-06
 
