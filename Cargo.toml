@@ -1,6 +1,6 @@
 [package]
 name = "gitui"
-version = "0.16.2"
+version = "0.17.0"
 authors = ["Stephan Dilly <dilly.stephan@gmail.com>"]
 description = "blazing fast terminal-ui for git"
 edition = "2018"
@@ -20,7 +20,7 @@ keywords = [
 
 [dependencies]
 scopetime = { path = "./scopetime", version = "0.1" }
-asyncgit = { path = "./asyncgit", version = "0.16" }
+asyncgit = { path = "./asyncgit", version = "0.17" }
 filetreelist = { path = "./filetreelist", version = "0.2" }
 crossterm = { version = "0.20", features = [ "serde" ] }
 clap = { version = "2.33", default-features = false }
@@ -47,13 +47,14 @@ easy-cast = "0.4"
 bugreport = "0.4"
 lazy_static = "1.4"
 syntect = { version = "4.5", default-features = false, features = ["metadata", "default-fancy"]}
+gh-emoji = "1.0.6"
 
 [target.'cfg(all(target_family="unix",not(target_os="macos")))'.dependencies]
 which = "4.1"
 
 # pprof is not available on windows
 [target.'cfg(not(windows))'.dependencies]
-pprof = { version = "0.4", features = ["flamegraph"], optional = true }
+pprof = { version = "0.5", features = ["flamegraph"], optional = true }
 
 [dev-dependencies]
 pretty_assertions = "0.7"
